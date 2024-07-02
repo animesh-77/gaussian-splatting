@@ -43,6 +43,7 @@ class GaussianModel:
 
     def __init__(self, sh_degree : int):
         self.active_sh_degree = 0
+        # start with 0, and increase as needed
         self.max_sh_degree = sh_degree  
         self._xyz = torch.empty(0)
         self._features_dc = torch.empty(0)
@@ -93,6 +94,8 @@ class GaussianModel:
         self.optimizer.load_state_dict(opt_dict)
 
     @property
+    # built in decorator that allows you to call a method as if it were an attribute
+    # we can call instance.get_scaling instead of instance.get_scaling()
     def get_scaling(self):
         return self.scaling_activation(self._scaling)
     

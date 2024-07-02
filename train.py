@@ -13,15 +13,21 @@ import os
 import torch
 from random import randint
 from utils.loss_utils import l1_loss, ssim
+# l1 loss : mean absolute error
+# ssim : structural similarity index
 from gaussian_renderer import render, network_gui
 import sys
 from scene import Scene, GaussianModel
 from utils.general_utils import safe_state
 import uuid
+# Universally Unique Identifier (UUID)
+# 128-bit label used for information in computer systems
+# common use is to generate unique IDs for objects that need to be distinct
 from tqdm import tqdm
 from utils.image_utils import psnr
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
+from typing import Optional
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -39,14 +45,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         gaussians.restore(model_params, opt)
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
+    # white or black background, [1, 1, 1] is white, [0, 0, 0] is black
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
 
     iter_start = torch.cuda.Event(enable_timing = True)
     iter_end = torch.cuda.Event(enable_timing = True)
+    # cuda event is used to measure time. We make 2 events, at start and end
+    # :NOTE we need to synchronize the events before measuring time elapsed
 
     viewpoint_stack = None
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
+    # tqdm progress bar. we will manually update it every 10 iterations later
     first_iter += 1
     for iteration in range(first_iter, opt.iterations + 1):        
         if network_gui.conn == None:
@@ -88,6 +98,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
+        # moves tensor to GPU . equivalent to .to("cuda")
         Ll1 = l1_loss(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
         loss.backward()
@@ -99,13 +110,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             ema_loss_for_log = 0.4 * loss.item() + 0.6 * ema_loss_for_log
             if iteration % 10 == 0:
                 progress_bar.set_postfix({"Loss": f"{ema_loss_for_log:.{7}f}"})
+                # adds loss metric after it/s in the progress bar
+                # :TODO add exact name of loss and add others as well
                 progress_bar.update(10)
+                # udpate 10 iterations at a time
             if iteration == opt.iterations:
                 progress_bar.close()
 
             # Log and save
+            # in tensorboard writer if available else prints for testing iterations
             training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background))
             if (iteration in saving_iterations):
+                # for some iterations we save the model
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
 
@@ -124,25 +140,36 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
             # Optimizer step
             if iteration < opt.iterations:
+                # this will always be true, so why check?
                 gaussians.optimizer.step()
                 gaussians.optimizer.zero_grad(set_to_none = True)
 
             if (iteration in checkpoint_iterations):
+                # for some iterations we save the tensors
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
 
-def prepare_output_and_logger(args):    
+def prepare_output_and_logger(args) -> Optional[SummaryWriter]:    
     if not args.model_path:
+        # checks is model_path is empty (not passed) or not
         if os.getenv('OAR_JOB_ID'):
             unique_str=os.getenv('OAR_JOB_ID')
         else:
             unique_str = str(uuid.uuid4())
+            # generates unique 128-bit label 
+            # most bits are randomly generated one is predertmined to be 4
+            # xxxxxxxx-xxxx-4xxx-xxxx-xxxxxxxxxxxx  8-4-4-4-12 every x is a hexadecimal/4 bits
+            # in total 36 characters
+
         args.model_path = os.path.join("./output/", unique_str[0:10])
+        # take only first 10 characters of unique_str
         
     # Set up output folder
     print("Output folder: {}".format(args.model_path))
     os.makedirs(args.model_path, exist_ok = True)
     with open(os.path.join(args.model_path, "cfg_args"), 'w') as cfg_log_f:
+        # configuration arguments saved
+        #  right now no file extension. can also add .txt as extension
         cfg_log_f.write(str(Namespace(**vars(args))))
 
     # Create Tensorboard writer
@@ -153,13 +180,16 @@ def prepare_output_and_logger(args):
         print("Tensorboard not available: not logging progress")
     return tb_writer
 
-def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, renderArgs):
+def training_report(tb_writer: Optional[SummaryWriter], iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, renderArgs):
     if tb_writer:
+        # if tensorboard writer is available
         tb_writer.add_scalar('train_loss_patches/l1_loss', Ll1.item(), iteration)
+        # add_scalar(tag, scalar_value, global_step)
         tb_writer.add_scalar('train_loss_patches/total_loss', loss.item(), iteration)
         tb_writer.add_scalar('iter_time', elapsed, iteration)
 
     # Report test and samples of training set
+    # even if tensorboard writer is not available, we print it
     if iteration in testing_iterations:
         torch.cuda.empty_cache()
         validation_configs = ({'name': 'test', 'cameras' : scene.getTestCameras()}, 
@@ -182,6 +212,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                 l1_test /= len(config['cameras'])          
                 print("\n[ITER {}] Evaluating {}: L1 {} PSNR {}".format(iteration, config['name'], l1_test, psnr_test))
                 if tb_writer:
+                    # if tensorboard writer is available    
                     tb_writer.add_scalar(config['name'] + '/loss_viewpoint - l1_loss', l1_test, iteration)
                     tb_writer.add_scalar(config['name'] + '/loss_viewpoint - psnr', psnr_test, iteration)
 
@@ -194,21 +225,45 @@ if __name__ == "__main__":
     # Set up command line argument parser
     parser = ArgumentParser(description="Training script parameters")
     lp = ModelParams(parser)
+    # lp is an instance of ModelParams class
+    print("DISREGRAD THIS --> lp ")
+    for key, value in vars(lp).items():
+            print("DISREGRAD THIS ",key)
     op = OptimizationParams(parser)
+    # op is an instance of OptimizationParams class
+    print("DISREGRAD THIS --> op ")
+    for key, value in vars(op).items():
+            print("DISREGRAD THIS ",key)
     pp = PipelineParams(parser)
+    # pp is an instance of PipelineParams class
+    print("DISREGRAD THIS --> pp ")
+    for key, value in vars(pp).items():
+            print("DISREGRAD THIS ",key)
+    # all three objects pp, op, lp are not used after this point
+    # argumets of lp, op, pp have been added to parser
     parser.add_argument('--ip', type=str, default="127.0.0.1")
     parser.add_argument('--port', type=int, default=6009)
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
     parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 30_000])
+    # nargs stands for number of arguments
+    # nargs="+" means one or more arguments after --test_iterations
+    # will be stored in a list
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 30_000])
+    # save the .ply files at these iterations
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
+    # save the tensors at these iterations
     parser.add_argument("--start_checkpoint", type=str, default = None)
     args = parser.parse_args(sys.argv[1:])
+    # sys.argv[1:] is the list of command line arguments passed to the script
+    # sys.argv[0] is the name of the script
+    # type(args) = argparse.Namespace
     args.save_iterations.append(args.iterations)
-    
+    # if max iterations is different than 30_000 then save then as well
+
     print("Optimizing " + args.model_path)
+    # if not passed then this is empty
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
