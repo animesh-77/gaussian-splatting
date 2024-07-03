@@ -24,6 +24,8 @@ parser.add_argument("--skip_matching", action='store_true')
 # will store True when --skip_matching is passed, by default it is False
 parser.add_argument("--source_path", "-s", required=True, type=str)
 parser.add_argument("--camera", default="OPENCV", type=str)
+# but uses PINHOLE model in the end
+# https://github.com/animesh-77/gaussian-splatting/blob/7ab5aed831f2340de09bc5611c6648e57c51f110/scene/dataset_readers.py#L95C1-L95C134
 parser.add_argument("--colmap_executable", default="", type=str)
 parser.add_argument("--resize", action="store_true")
 parser.add_argument("--magick_executable", default="", type=str)

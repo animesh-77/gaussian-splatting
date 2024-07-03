@@ -65,13 +65,14 @@ def getNerfppNorm(cam_info):
 
     return {"translate": translate, "radius": radius}
 
-def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
+def readColmapCameras(cam_extrinsics: dict, cam_intrinsics :dict, images_folder):
     cam_infos = []
     for idx, key in enumerate(cam_extrinsics):
         sys.stdout.write('\r')
         # the exact output you're looking for:
         sys.stdout.write("Reading camera {}/{}".format(idx+1, len(cam_extrinsics)))
         sys.stdout.flush()
+        # essentially a print statement
 
         extr = cam_extrinsics[key]
         intr = cam_intrinsics[extr.camera_id]
@@ -80,7 +81,9 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
 
         uid = intr.id
         R = np.transpose(qvec2rotmat(extr.qvec))
+        # rotation matrix
         T = np.array(extr.tvec)
+        # translation vector
 
         if intr.model=="SIMPLE_PINHOLE":
             focal_length_x = intr.params[0]
@@ -94,6 +97,8 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
         else:
             assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE or SIMPLE_PINHOLE cameras) supported!"
 
+        # extr.name is the image name XXXX.jpg or XXXX.png etc with extension
+        # path.basename get the file name with extension
         image_path = os.path.join(images_folder, os.path.basename(extr.name))
         image_name = os.path.basename(image_path).split(".")[0]
         image = Image.open(image_path)
@@ -130,12 +135,31 @@ def storePly(path, xyz, rgb):
     ply_data.write(path)
 
 def readColmapSceneInfo(path, images, eval, llffhold=8):
+    # :LEFTHERE what is images?
+    """
+    Reads the scene information from the Colmap soarse reconstruction
+
+    Args:
+        path (str): The path to the Colmap dataset.
+        images (str): 
+        eval (bool): 
+        llffhold (int): The holdout factor for the LLFF dataset. Default is 8.
+
+    Returns:
+        SceneInfo: An object containing the scene information, including point cloud, camera information, and other metadata.
+    """
+    # camera.bin/txt : camera intrinsics
+    # images.bin/txt : pose and keypoints of all reconstructed images
     try:
+        # only first model is read. Best to have consolidated model
+        # tries .bin file
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
         cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
         cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
     except:
+        # only first model is read. Best to have consolidated model
+        # tries .txt file
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.txt")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.txt")
         cam_extrinsics = read_extrinsics_text(cameras_extrinsic_file)

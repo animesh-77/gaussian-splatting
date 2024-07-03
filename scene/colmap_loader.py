@@ -15,6 +15,9 @@ import struct
 
 CameraModel = collections.namedtuple(
     "CameraModel", ["model_id", "model_name", "num_params"])
+# named tuple is an simple, lightweight data structure similar to a class, but without the overhead of defining a full class
+# immutable
+# can access the values both by name or index unlike a tuple,dictionary or list
 Camera = collections.namedtuple(
     "Camera", ["id", "model", "width", "height", "params"])
 BaseImage = collections.namedtuple(
@@ -34,13 +37,25 @@ CAMERA_MODELS = {
     CameraModel(model_id=9, model_name="RADIAL_FISHEYE", num_params=5),
     CameraModel(model_id=10, model_name="THIN_PRISM_FISHEYE", num_params=12)
 }
+# CAMERA_MODELS is a set of namedtuples
+# Each element is CameraModel instance with 3 fields: model_id, model_name, num_params
 CAMERA_MODEL_IDS = dict([(camera_model.model_id, camera_model)
                          for camera_model in CAMERA_MODELS])
 CAMERA_MODEL_NAMES = dict([(camera_model.model_name, camera_model)
                            for camera_model in CAMERA_MODELS])
 
 
-def qvec2rotmat(qvec):
+def qvec2rotmat(qvec :np.ndarray) -> np.ndarray:
+    """
+    Convert a quaternion vector to a rotation matrix.
+
+    Parameters:
+    qvec (numpy.ndarray): The quaternion vector to be converted.
+
+    Returns:
+    numpy.ndarray: The rotation matrix.
+
+    """
     return np.array([
         [1 - 2 * qvec[2]**2 - 2 * qvec[3]**2,
          2 * qvec[1] * qvec[2] - 2 * qvec[0] * qvec[3],
@@ -66,6 +81,7 @@ def rotmat2qvec(R):
     return qvec
 
 class Image(BaseImage):
+    # inherits from BaseImage which is a named tuple, acts as a class
     def qvec2rotmat(self):
         return qvec2rotmat(self.qvec)
 
@@ -153,9 +169,14 @@ def read_points3D_binary(path_to_model_file):
             errors[p_id] = error
     return xyzs, rgbs, errors
 
-def read_intrinsics_text(path):
+def read_intrinsics_text(path) -> dict:
     """
     Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_write_model.py
+    output format of cameras.txt: https://colmap.github.io/format.html#cameras-txt
+    PINHOLE model saved like this 
+    CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]
+    2 PINHOLE 3072 2304 2560.56 2560.56 1536 1152
+    Here paramsp[] are focal len_x, focal len_y, principal point_x, principal point_y
     """
     cameras = {}
     with open(path, "r") as fid:
@@ -165,19 +186,26 @@ def read_intrinsics_text(path):
                 break
             line = line.strip()
             if len(line) > 0 and line[0] != "#":
+                # check if line is not a comment or empty
                 elems = line.split()
-                camera_id = int(elems[0])
+                # splits into list of strings, each string is numeric
+                camera_id = int(elems[0]) 
+                # unique camera id
                 model = elems[1]
+                # camera model name
                 assert model == "PINHOLE", "While the loader support other types, the rest of the code assumes PINHOLE"
                 width = int(elems[2])
                 height = int(elems[3])
                 params = np.array(tuple(map(float, elems[4:])))
+                # first map from string to float, then convert to tuple(could have used list), then to numpy array
+                # numpy array of 4 PINHOLE camera parameters
                 cameras[camera_id] = Camera(id=camera_id, model=model,
                                             width=width, height=height,
                                             params=params)
+                # Camera is a named tuple
     return cameras
 
-def read_extrinsics_binary(path_to_model_file):
+def read_extrinsics_binary(path_to_model_file) -> dict:
     """
     see: src/base/reconstruction.cc
         void Reconstruction::ReadImagesBinary(const std::string& path)
@@ -212,7 +240,7 @@ def read_extrinsics_binary(path_to_model_file):
     return images
 
 
-def read_intrinsics_binary(path_to_model_file):
+def read_intrinsics_binary(path_to_model_file) -> dict:
     """
     see: src/base/reconstruction.cc
         void Reconstruction::WriteCamerasBinary(const std::string& path)
@@ -241,9 +269,13 @@ def read_intrinsics_binary(path_to_model_file):
     return cameras
 
 
-def read_extrinsics_text(path):
+def read_extrinsics_text(path) -> dict:
     """
     Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_write_model.py
+    output format for images.txt https://colmap.github.io/format.html#images-txt
+    2 lines per image
+    IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME
+    POINTS2D[] as (X, Y, POINT3D_ID)
     """
     images = {}
     with open(path, "r") as fid:
@@ -253,20 +285,30 @@ def read_extrinsics_text(path):
                 break
             line = line.strip()
             if len(line) > 0 and line[0] != "#":
+                # skip empty lines and comments
                 elems = line.split()
                 image_id = int(elems[0])
+                # unique image id
                 qvec = np.array(tuple(map(float, elems[1:5])))
+                # next 4 are quaternion values
                 tvec = np.array(tuple(map(float, elems[5:8])))
+                # next 3 are translation values
                 camera_id = int(elems[8])
+                # index of camera model
                 image_name = elems[9]
+                # XXXXX.jpg or XXXXX.png etc with extension
                 elems = fid.readline().split()
+                # now we read the 2nd line which is POINTS2D[] as (X, Y, POINT3D_ID)
                 xys = np.column_stack([tuple(map(float, elems[0::3])),
                                        tuple(map(float, elems[1::3]))])
+                # xys is a numpy array of shape (num_points, 2)
                 point3D_ids = np.array(tuple(map(int, elems[2::3])))
+                # :TODO might be a good idea to remove points without corresponding 3D points
                 images[image_id] = Image(
                     id=image_id, qvec=qvec, tvec=tvec,
                     camera_id=camera_id, name=image_name,
                     xys=xys, point3D_ids=point3D_ids)
+                # images is a dictionary with image_id as key and values are instance of Image class
     return images
 
 

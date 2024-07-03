@@ -75,7 +75,16 @@ def strip_lowerdiag(L):
 def strip_symmetric(sym):
     return strip_lowerdiag(sym)
 
-def build_rotation(r):
+def build_rotation(r: torch.Tensor) -> torch.Tensor:
+    """
+    Builds a rotation matrix based on the given quaternion.
+
+    Args:
+        r (torch.Tensor): A tensor of shape (N, 4) representing the quaternion.
+
+    Returns:
+        torch.Tensor: A tensor of shape (N, 3, 3) representing the rotation matrix.
+    """
     norm = torch.sqrt(r[:,0]*r[:,0] + r[:,1]*r[:,1] + r[:,2]*r[:,2] + r[:,3]*r[:,3])
 
     q = r / norm[:, None]
@@ -99,6 +108,16 @@ def build_rotation(r):
     return R
 
 def build_scaling_rotation(s, r):
+    """
+    Builds a scaling-rotation matrix.
+
+    Args:
+        s (torch.Tensor): Scaling factors of shape (N, 3).
+        r (torch.Tensor): Rotation quaternion of shape (N, 4).
+
+    Returns:
+        torch.Tensor: Scaling-rotation matrix of shape (N, 3, 3).
+    """
     L = torch.zeros((s.shape[0], 3, 3), dtype=torch.float, device="cuda")
     R = build_rotation(r)
 

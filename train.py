@@ -149,7 +149,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
 
-def prepare_output_and_logger(args) -> Optional[SummaryWriter]:    
+def prepare_output_and_logger(args) -> Optional[SummaryWriter]:  
     if not args.model_path:
         # checks is model_path is empty (not passed) or not
         if os.getenv('OAR_JOB_ID'):
@@ -217,6 +217,7 @@ def training_report(tb_writer: Optional[SummaryWriter], iteration, Ll1, loss, l1
                     tb_writer.add_scalar(config['name'] + '/loss_viewpoint - psnr', psnr_test, iteration)
 
         if tb_writer:
+            #  if tensorboard writer is available
             tb_writer.add_histogram("scene/opacity_histogram", scene.gaussians.get_opacity, iteration)
             tb_writer.add_scalar('total_points', scene.gaussians.get_xyz.shape[0], iteration)
         torch.cuda.empty_cache()
