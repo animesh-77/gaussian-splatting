@@ -71,7 +71,27 @@ def getProjectionMatrix(znear, zfar, fovX, fovY):
     return P
 
 def fov2focal(fov, pixels):
+    """
+    Converts the field of view (FOV) angle to the focal length in pixels.
+
+    Parameters:
+    - fov (float): The field of view angle in radians.
+    - pixels (int): The number of pixels.
+
+    Returns:
+    - float: The focal length in pixels. to get it in meters, we need to know the sensor size
+    """
     return pixels / (2 * math.tan(fov / 2))
 
 def focal2fov(focal, pixels):
+    """
+    Converts the focal length in pixels to the field of view (FOV) angle in radians
+
+    Parameters:
+    - focal (float): The focal length in pixels.
+    - pixels (int): The number of pixels.
+
+    Returns:
+    - float: The field of view angle in radians.
+    """    
     return 2*math.atan(pixels/(2*focal))
