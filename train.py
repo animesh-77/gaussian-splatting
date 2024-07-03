@@ -130,6 +130,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             # in tensorboard writer if available else prints for testing iterations
             training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background))
             # iter_start.elapsed_time(iter_end) includes synchronization step
+            # training_report is called at each iteration
             if (iteration in saving_iterations):
                 # for some iterations we save the model
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
@@ -203,12 +204,19 @@ def prepare_output_and_logger(args) -> Optional[SummaryWriter]:
     return tb_writer
 
 def training_report(tb_writer: Optional[SummaryWriter], iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, renderArgs):
+    """
+    TENSORBOARD For all iterations
+    * 
+    """
     if tb_writer:
         # if tensorboard writer is available
         tb_writer.add_scalar('train_loss_patches/l1_loss', Ll1.item(), iteration)
         # add_scalar(tag, scalar_value, global_step)
+        # Here name is train_loss_patches and sub-name is l1_loss
         tb_writer.add_scalar('train_loss_patches/total_loss', loss.item(), iteration)
+        # name is train_loss_patches and sub-name is total_loss
         tb_writer.add_scalar('iter_time', elapsed, iteration)
+        # name is iter_time
 
     # Report test and samples of training set
     # even if tensorboard writer is not available, we print it
