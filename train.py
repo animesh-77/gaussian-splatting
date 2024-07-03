@@ -41,7 +41,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
+    # for all gaussians, their loactions, opacities, radii, etc
     scene = Scene(dataset, gaussians)
+    print(f"DISREGARD THIS --> Starting with {gaussians.get_xyz.shape[0]} points in the scene")
     gaussians.training_setup(opt)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
@@ -159,7 +161,16 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
 
-def prepare_output_and_logger(args) -> Optional[SummaryWriter]:  
+def prepare_output_and_logger(args) -> Optional[SummaryWriter]:
+    """
+    Prepares the output folder, logger, and Tensorboard writer.
+
+    Args:
+        args: The command-line arguments.
+
+    Returns:
+        The Tensorboard writer if available, otherwise None.
+    """
     if not args.model_path:
         # checks is model_path is empty (not passed) or not
         if os.getenv('OAR_JOB_ID'):
@@ -185,7 +196,8 @@ def prepare_output_and_logger(args) -> Optional[SummaryWriter]:
     # Create Tensorboard writer
     tb_writer = None
     if TENSORBOARD_FOUND:
-        tb_writer = SummaryWriter(args.model_path)
+        tb_writer = SummaryWriter(log_dir=args.model_path)
+        # tensorboard writer is created in the same folder as model_path
     else:
         print("Tensorboard not available: not logging progress")
     return tb_writer

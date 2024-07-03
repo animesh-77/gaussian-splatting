@@ -24,6 +24,8 @@ from utils.general_utils import strip_symmetric, build_scaling_rotation
 class GaussianModel:
 
     def setup_functions(self):
+        # add more attributes to the instance of GaussianModel class
+        # self is an instance of GaussianModel class
         def build_covariance_from_scaling_rotation(scaling, scaling_modifier, rotation):
             # make rotation matrix
             L = build_scaling_rotation(scaling_modifier * scaling, rotation)
@@ -96,8 +98,13 @@ class GaussianModel:
 
     @property
     # built in decorator that allows you to call a method as if it were an attribute
-    # we can call instance.get_scaling instead of instance.get_scaling()
+    # now we can call instance.get_scaling instead of instance.get_scaling() 
+    # to get the value returned by this function
     def get_scaling(self):
+        # self is an instance of GaussianModel class
+        # self._scaling is a tensor
+        # self.scaling_activation is an exponential function
+        # this function returns a tensor
         return self.scaling_activation(self._scaling)
     
     @property
