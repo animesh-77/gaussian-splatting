@@ -19,7 +19,7 @@ from scene.gaussian_model import GaussianModel
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
 # for type hinting
-from dataset_readers import SceneInfo
+from scene.dataset_readers import SceneInfo
 
 class Scene:
 

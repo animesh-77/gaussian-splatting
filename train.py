@@ -236,7 +236,7 @@ if __name__ == "__main__":
     # Set up command line argument parser
     parser = ArgumentParser(description="Training script parameters")
     lp = ModelParams(parser)
-    # lp is an instance of ModelParams class
+    # lp learning parameters is an instance of ModelParams class
     print("DISREGRAD THIS --> lp ")
     for key, value in vars(lp).items():
             print("DISREGRAD THIS ",key)

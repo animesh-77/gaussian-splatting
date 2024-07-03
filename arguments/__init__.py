@@ -60,6 +60,7 @@ class ParamGroup:
 
 class ModelParams(ParamGroup): 
 # inherits from ParamGroup class
+# used to define lp learning parameters
     def __init__(self, parser, sentinel=False):
         # childs __init__ method overrides the parent class __init__ method
         # to use the parent class __init__ method, we need to call it explicitly in the end
@@ -79,10 +80,13 @@ class ModelParams(ParamGroup):
         # in the end we want to add all arguments to parser
 
     def extract(self, args : Namespace):
+        # overwrites the extract method of the parent class, so we need to call it explicitly
         # self is an instance of ModelParams class
         # args is an instance of Namespace class
         g = super().extract(args)
         g.source_path = os.path.abspath(g.source_path)
+        # converts relative path to absolute path
+        # if already absolute path, it remains the same
         return g
 
 class PipelineParams(ParamGroup):
