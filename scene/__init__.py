@@ -14,9 +14,12 @@ import random
 import json
 from utils.system_utils import searchForMaxIteration
 from scene.dataset_readers import sceneLoadTypeCallbacks
+# just a doctionary with the keys "Colmap" and "Blender" and the values are the functions that load the scene
 from scene.gaussian_model import GaussianModel
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
+# for type hinting
+from dataset_readers import SceneInfo
 
 class Scene:
 
@@ -26,6 +29,7 @@ class Scene:
         """b
         :param path: Path to colmap scene main folder.
         """
+        # args in loading parameters
         self.model_path = args.model_path
         self.loaded_iter = None
         self.gaussians = gaussians
@@ -42,7 +46,10 @@ class Scene:
 
         if os.path.exists(os.path.join(args.source_path, "sparse")):
             # looks for a sparse folder, if it exists, it is a COLMAP scene
-            scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval)
+            scene_info : SceneInfo = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval)
+            # args.source_path path with a folder named sparse
+            # args.images path with a folder named images containing the undistorted images
+            # args.eval whther to split into train and test cameras. Default is False
         elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
             print("Found transforms_train.json file, assuming Blender data set!")
             scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval)

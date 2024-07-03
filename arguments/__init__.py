@@ -69,6 +69,7 @@ class ModelParams(ParamGroup):
         self._source_path = ""
         self._model_path = ""
         self._images = "images"
+        # folder name of undistorted images
         self._resolution = -1
         self._white_background = False
         self.data_device = "cuda"

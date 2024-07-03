@@ -134,16 +134,15 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, images, eval, llffhold=8):
-    # :LEFTHERE what is images?
+def readColmapSceneInfo(path, images, eval, llffhold=8) -> SceneInfo:
     """
     Reads the scene information from the Colmap soarse reconstruction
 
     Args:
         path (str): The path to the Colmap dataset.
-        images (str): 
+        images (str): path to folder with undistorted images`
         eval (bool): 
-        llffhold (int): The holdout factor for the LLFF dataset. Default is 8.
+        llffhold (int): The holdout factor Default is 8. For every 8 cameras, 1 is used for testing only If eval is TRUE
 
     Returns:
         SceneInfo: An object containing the scene information, including point cloud, camera information, and other metadata.

@@ -122,6 +122,7 @@ class GaussianModel:
         return self.covariance_activation(self.get_scaling, scaling_modifier, self._rotation)
 
     def oneupSHdegree(self):
+        # increase the number of SH coefficients upto the maximum
         if self.active_sh_degree < self.max_sh_degree:
             self.active_sh_degree += 1
 

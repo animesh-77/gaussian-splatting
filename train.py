@@ -35,6 +35,9 @@ except ImportError:
     TENSORBOARD_FOUND = False
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+    # dataset is loading parameters
+    # opt is optimization parameters
+    # pipe is pipeline parameters
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -51,14 +54,15 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     iter_start = torch.cuda.Event(enable_timing = True)
     iter_end = torch.cuda.Event(enable_timing = True)
     # cuda event is used to measure time. We make 2 events, at start and end
-    # :NOTE we need to synchronize the events before measuring time elapsed
+    # :NOTE we need to synchronize the events before measuring time elapsed. but they have not done it???
 
     viewpoint_stack = None
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     # tqdm progress bar. we will manually update it every 10 iterations later
     first_iter += 1
-    for iteration in range(first_iter, opt.iterations + 1):        
+    for iteration in range(first_iter, opt.iterations + 1):
+        # all iterations loop
         if network_gui.conn == None:
             network_gui.try_connect()
         while network_gui.conn != None:
@@ -75,6 +79,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 network_gui.conn = None
 
         iter_start.record()
+        # start recording time
 
         gaussians.update_learning_rate(iteration)
 
@@ -98,12 +103,14 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
-        # moves tensor to GPU . equivalent to .to("cuda")
+        # .cuda() moves tensor to GPU . equivalent to .to("cuda")
         Ll1 = l1_loss(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
         loss.backward()
+        # accumulate gradients
 
         iter_end.record()
+        # end recording time. Ideally we should synchronize the events before measuring time elapsed
 
         with torch.no_grad():
             # Progress bar
@@ -120,6 +127,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             # Log and save
             # in tensorboard writer if available else prints for testing iterations
             training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background))
+            # iter_start.elapsed_time(iter_end) includes synchronization step
             if (iteration in saving_iterations):
                 # for some iterations we save the model
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
@@ -142,7 +150,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             if iteration < opt.iterations:
                 # this will always be true, so why check?
                 gaussians.optimizer.step()
+                # take step from the accumulated gradients
                 gaussians.optimizer.zero_grad(set_to_none = True)
+                # zero the gradients for the next iteration
 
             if (iteration in checkpoint_iterations):
                 # for some iterations we save the tensors
