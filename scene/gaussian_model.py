@@ -161,7 +161,9 @@ class GaussianModel:
     def training_setup(self, training_args):
         self.percent_dense = training_args.percent_dense
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        # make a zero column tensor of size (number of points, 1) on GPU
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        # make a zero column tensor of size (number of points, 1) on GPU
 
         l = [
             {'params': [self._xyz], 'lr': training_args.position_lr_init * self.spatial_lr_scale, "name": "xyz"},
@@ -171,14 +173,22 @@ class GaussianModel:
             {'params': [self._scaling], 'lr': training_args.scaling_lr, "name": "scaling"},
             {'params': [self._rotation], 'lr': training_args.rotation_lr, "name": "rotation"}
         ]
+        # to make different learning rate for different parameters. e.g
+        # for psoition x,y,z learning rate is intial_positions_lr scaled by spatial_lr_scale
+        # and name of group is "xyz"
 
         self.optimizer = torch.optim.Adam(l, lr=0.0, eps=1e-15)
+        # list of dict make sures that different parameters have different learning rates
+        # default lr is 0.0, eps is 1e-15
+        # by design every parameter gets a different learning rate and default epsilon value 1e-15
+        
         self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init*self.spatial_lr_scale,
                                                     lr_final=training_args.position_lr_final*self.spatial_lr_scale,
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
                                                     max_steps=training_args.position_lr_max_steps)
 
-    def update_learning_rate(self, iteration):
+    def update_learning_rate(self , iteration : int):
+        # self is an instance of GaussianModel class
         ''' Learning rate scheduling per step '''
         for param_group in self.optimizer.param_groups:
             if param_group["name"] == "xyz":
