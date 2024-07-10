@@ -22,21 +22,26 @@ parser.add_argument("--no_gpu", action='store_true')
 # here no_gpu will store True when --no_gpu is passed
 parser.add_argument("--skip_matching", action='store_true')
 # will store True when --skip_matching is passed, by default it is False
+parser.add_argument("--skip_undistortion", action='store_true')
+# will store True when --skip_undistortion is passed, by default it is False
 parser.add_argument("--source_path", "-s", required=True, type=str)
+# expects a folder named input in the source_path
+# source_path
+#   |---input
 parser.add_argument("--camera", default="OPENCV", type=str)
 # but uses PINHOLE model in the end
 # https://github.com/animesh-77/gaussian-splatting/blob/7ab5aed831f2340de09bc5611c6648e57c51f110/scene/dataset_readers.py#L95C1-L95C134
 parser.add_argument("--colmap_executable", default="", type=str)
-parser.add_argument("--resize", action="store_true")
+parser.add_argument("--resize", action="store_true", default=True)
 parser.add_argument("--magick_executable", default="", type=str)
 args = parser.parse_args()
 # print all the command line arguments
 for arg in vars(args):
-    print(f"{arg}: {getattr(args, arg)}")
+    print(f"DISREGARD THIS  {arg}: {getattr(args, arg)}")
 colmap_command = '"{}"'.format(args.colmap_executable) if len(args.colmap_executable) > 0 else "colmap"
-print(colmap_command)
+print(f"DISREGARD THIS  {colmap_command}")
 magick_command = '"{}"'.format(args.magick_executable) if len(args.magick_executable) > 0 else "magick"
-print(magick_command)
+print(f"DISREGARD THIS  {magick_command}")
 use_gpu = 1 if not args.no_gpu else 0
 # from TRUE to 1, from FALSE to 0
 
@@ -46,7 +51,7 @@ if not args.skip_matching:
     # till now the source_path tree is
     # source_path
     #   |---input
-    #   |---distorated
+    #   |---distorted
     #       |---sparse
 
     ## Feature extraction
@@ -119,55 +124,76 @@ if not args.skip_matching:
         logging.error(f"Mapper failed with code {exit_code}. Exiting.")
         exit(exit_code)
 
-### Image undistortion
-## We need to undistort our images into ideal pinhole intrinsics.
-img_undist_cmd = (colmap_command + " image_undistorter \
-    --image_path " + args.source_path + "/input \
-    --input_path " + args.source_path + "/distorted/sparse/0 \
-    --output_path " + args.source_path + "\
-    --output_type COLMAP")
-# image_path same as above. image folder name should be /input !!
-# input_path to the sparse point cloud model
-# new folder created for undistorated images in source_path/images
-# output_type COLMAP ???
-# now the source_path tree is
-# source_path
-#   |---input
-#   |---distorated
-#       |---database.db
-#       |---sparse
-#           |---0
-#           |---1 and so on. normally we need/get a single consolidated model
-#   |---images
-#   |---sparse
-#       |---0
-#           |---cameras.bin
-#           |---images.bin
-#           |---points3D.bin
-#   |---stereo
-#       |---consistency_graphs
-#       |---depth_maps
-#       |---normal_maps
-#       |---fusion.cfg
-#       |---patch_match.cfg
-#   |---run_colmap-geometric.sh
-#   |---run_colmap-photometric.sh
-# Why are empty stereo folders created??
-exit_code = os.system(img_undist_cmd)
-if exit_code != 0:
-    logging.error(f"Mapper failed with code {exit_code}. Exiting.")
-    exit(exit_code)
+if not args.skip_undistortion:
+    ### Image undistortion
+    ## We need to undistort our images into ideal pinhole intrinsics.
+    img_undist_cmd = (colmap_command + " image_undistorter \
+        --image_path " + args.source_path + "/input \
+        --input_path " + args.source_path + "/distorted/sparse/0 \
+        --output_path " + args.source_path + "\
+        --output_type COLMAP")
+    # image_path same as above. image folder name should be /input !!
+    # input_path to the sparse point cloud model
+    # new folder created for undistorated images in source_path/images
+    # output_type COLMAP ???
+    # now the source_path tree is
+    # source_path
+    #   |---input
+    #   |---distorated
+    #       |---database.db
+    #       |---sparse
+    #           |---0
+    #           |---1 and so on. normally we need/get a single consolidated model
+    #   |---images
+    #   |---sparse
+    #       |---cameras.bin
+    #       |---images.bin
+    #       |---points3D.bin
+    #   |---stereo
+    #       |---consistency_graphs
+    #       |---depth_maps
+    #       |---normal_maps
+    #       |---fusion.cfg
+    #       |---patch_match.cfg
+    #   |---run_colmap-geometric.sh
+    #   |---run_colmap-photometric.sh
+    # Why are empty stereo folders created??
+    exit_code = os.system(img_undist_cmd)
+    if exit_code != 0:
+        logging.error(f"Mapper failed with code {exit_code}. Exiting.")
+        exit(exit_code)
 
-files = os.listdir(args.source_path + "/sparse")
-os.makedirs(args.source_path + "/sparse/0", exist_ok=True)
-# Copy each file from the source directory to the destination directory
-for file in files:
-    if file == '0':
-        continue
-    source_file = os.path.join(args.source_path, "sparse", file)
-    destination_file = os.path.join(args.source_path, "sparse", "0", file)
-    shutil.move(source_file, destination_file)
-
+    files = os.listdir(args.source_path + "/sparse")
+    os.makedirs(args.source_path + "/sparse/0", exist_ok=True)
+    # Copy each file from the source directory to the destination directory
+    for file in files:
+        if file == '0':
+            continue
+        source_file = os.path.join(args.source_path, "sparse", file)
+        destination_file = os.path.join(args.source_path, "sparse", "0", file)
+        shutil.move(source_file, destination_file)
+    # now the source_path tree is
+    # source_path
+    #   |---input
+    #   |---distorated
+    #       |---database.db
+    #       |---sparse
+    #           |---0
+    #           |---1 and so on. normally we need/get a single consolidated model
+    #   |---images
+    #   |---sparse
+    #       |---0
+    #           |---cameras.bin
+    #           |---images.bin
+    #           |---points3D.bin
+    #   |---stereo
+    #       |---consistency_graphs
+    #       |---depth_maps
+    #       |---normal_maps
+    #       |---fusion.cfg
+    #       |---patch_match.cfg
+    #   |---run_colmap-geometric.sh
+    #   |---run_colmap-photometric.sh
 if(args.resize):
     # Only if resize is set True
     print("Copying and resizing...")
@@ -178,7 +204,7 @@ if(args.resize):
     os.makedirs(args.source_path + "/images_8", exist_ok=True)
     # Get the list of files in the source directory
     files = os.listdir(args.source_path + "/images")
-    # Shouldn't this be input instead of images???
+    # :NOTE resize only the undistorted images
     # no images folder created during image_undistorter
     # Copy each file from the source directory to the destination directory
     for file in files:
