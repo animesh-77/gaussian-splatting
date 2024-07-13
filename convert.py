@@ -14,6 +14,8 @@ import logging
 from argparse import ArgumentParser
 import shutil
 
+from tqdm import tqdm
+
 # This Python script is based on the shell converter script provided in the MipNerF 360 repository.
 parser = ArgumentParser("Colmap converter")
 #this name shows when writing --help
@@ -207,7 +209,7 @@ if(args.resize):
     # :NOTE resize only the undistorted images
     # no images folder created during image_undistorter
     # Copy each file from the source directory to the destination directory
-    for file in files:
+    for file in tqdm(files):
         source_file = os.path.join(args.source_path, "images", file)
 
         destination_file = os.path.join(args.source_path, "images_2", file)
