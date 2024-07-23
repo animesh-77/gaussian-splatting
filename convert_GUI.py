@@ -31,12 +31,14 @@ def main():
     # expects a folder named input in the source_path
     # source_path
     #   |---input
-    parser.add_argument("--camera", default="OPENCV", type=str)
+    parser.add_argument("--camera", default="OPENCV", type=str, help="PINHOLE SIMPLEPINHOLE OPENCV" )
     # but uses PINHOLE model in the end
     # https://github.com/animesh-77/gaussian-splatting/blob/7ab5aed831f2340de09bc5611c6648e57c51f110/scene/dataset_readers.py#L95C1-L95C134
     parser.add_argument("--colmap_executable", default="", type=str)
     parser.add_argument("--skip_resize", action="store_true", default=False)
     parser.add_argument("--magick_executable", default="", type=str)
+    # all factors as list default 2 4 8
+    parser.add_argument("--resize_factors", nargs="+", default=[2, 4, 8], type=int)
     args = parser.parse_args()
     # print all the command line arguments
     for arg in vars(args):
@@ -238,7 +240,18 @@ def main():
                 exit(exit_code)
     else:
         print("Skipping resizing.")
-    print("Done.")
+    os.makedirs(args.source_path + "/images_1", exist_ok=True)
+    files = os.listdir(args.source_path + "/images")
+    for file in files:
+        source_file = os.path.join(args.source_path, "images", file)
+        destination_file = os.path.join(args.source_path, "images_1", file)
+        shutil.copy2(source_file, destination_file)
+        exit_code = os.system(magick_command + " mogrify -resize 100% " + destination_file)
+        if exit_code != 0:
+                logging.error(f"0% resize failed with code {exit_code}. Exiting.")
+                exit(exit_code)
 
+
+    print("Done.")
 if __name__ == "__main__":
     main()
